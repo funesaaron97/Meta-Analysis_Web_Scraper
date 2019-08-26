@@ -1,114 +1,119 @@
 #script for webscraper#
+#Load Necessary Libraries First#
+library(rvest)
+library(tidyverse)
+library(ggplot2)
+
+
 #This first section is for the Review of Educational Reseach#
-#Volume 89#
-Rev_of_ED_89 <- 'https://journals.sagepub.com/toc/rera/89/%d'
-rev_of_ed89 <-map_df(1:4, function(i){
+
+#We will define a function that cleans the Doi component of the Review of Educational Research#
+strip_doi_chars <- function(string){
   
-  page <- read_html(sprintf(Rev_of_ED_89, i))
+  # delete the front material from the DOI links
+  out_string = gsub("/doi/([[:alnum:]]*)/", "", string)
   
-  data.frame( Article = page %>% html_nodes('.hlFld-Title') %>%html_text(),
-             
-              Date= page %>% html_nodes('.maintextleft')%>% html_text(),
-             
-              Doi= unique(page %>% html_nodes('hlFld-Tittle ,a.ref.nowrap') %>% html_attr('href')),
-              
-              Authors= page %>% html_nodes('.all') %>% html_text()
-             )
-  })
+  return(out_string)
+}
 
-#Volume 88#
-Rev_of_ED_88 <- 'https://journals.sagepub.com/toc/rera/88/%d'
-rev_of_ed88 <-map_df(1:6, function(i){
-  page <- read_html(sprintf(Rev_of_ED_88, i))
-  data.frame(Title_for_Rev = page %>% html_nodes('.hlFld-Title') %>%html_text(),
-             Date= page %>% html_nodes('.maintextleft')%>% html_text()
-  )
-})
-#Volume 87#
-Rev_of_ED_87 <- 'https://journals.sagepub.com/toc/rera/87/%d'
-rev_of_ed87 <-map_df(1:6, function(i){
-  page <- read_html(sprintf(Rev_of_ED_87, i))
-  data.frame(Title_for_Rev = page %>% html_nodes('.hlFld-Title') %>%html_text(),
-             Date= page %>% html_nodes('.maintextleft')%>% html_text()
-  )
-})
 
-#Volume 86#
-Rev_of_ED_86 <- 'https://journals.sagepub.com/toc/rera/86/%d'
-rev_of_ed86 <-map_df(1:4, function(i){
-  page <- read_html(sprintf(Rev_of_ED_86, i))
-  data.frame(Title_for_Rev = page %>% html_nodes('.hlFld-Title') %>%html_text(),
-             Date= page %>% html_nodes('.maintextleft')%>% html_text()
-  )
-})
-
-#Volume 85#
-Rev_of_ED_85 <- 'https://journals.sagepub.com/toc/rera/85/%d'
-rev_of_ed85 <-map_df(1:4, function(i){
-  page <- read_html(sprintf(Rev_of_ED_85, i))
-  data.frame(Title_for_Rev = page %>% html_nodes('.hlFld-Title') %>%html_text(),
-             Date= page %>% html_nodes('.maintextleft')%>% html_text()
-  )
-})
-
-#Volume 84#
-Rev_of_ED_84 <- 'https://journals.sagepub.com/toc/rera/84/%d'
-rev_of_ed84 <-map_df(1:4, function(i){
-  page <- read_html(sprintf(Rev_of_ED_84, i))
-  data.frame(Title_for_Rev = page %>% html_nodes('.hlFld-Title') %>%html_text(),
-             Date= page %>% html_nodes('.maintextleft')%>% html_text()
-  )
-})
-# Function for....
+# Iterative Function for Review of Educational Research
 get_RERA <- function(volume){
   
+  #This assigns our base url # 
+  
   base_url = "https://journals.sagepub.com/toc/rera/"
-  rera_url <- paste0(base_url, volume, "/%d")
+ 
+   #This combines the base url with the volume and dynamic issue element#
+ 
+   rera_url <- paste0(base_url, volume, "/%d")
+  
+   #This ifelse statement assigns the approriate number of issues to each corresponding volume, since there are 6 issues in 87,88, but 4 everywhere else#
   n_issues <- ifelse(volume %in% 87:88, 6, 4)
   
+  #We make mapping our data frame contigent on 1 to our n_issues#
   out <- map_df(1:n_issues, function(i){
+    #Now we make the url readable in R#
     page <- read_html(sprintf(rera_url, i))
-    data.frame(Title_for_Rev = page %>% html_nodes('.hlFld-Title') %>%html_text(),
-               Date= page %>% html_nodes('.maintextleft')%>% html_text()
-      ) %>%
+    
+    # We must retrieve data for our doi's before we can create a data frame#
+    doi_url <- unique( page %>% html_nodes('hlFld-Tittle ,a.ref.nowrap') %>% html_attr('href'))
+    
+    #This creates the data frame#
+    data.frame( #First we tell R to get the page, then retrieve the node we want, and then translate the info into text#
+      
+      Title = page %>% html_nodes('.hlFld-Title') %>% html_text(),
+               
+      Date = page %>% html_nodes('.maintextleft')%>% html_text(),
+      
+       
+      #We have to run doi's differently, due to the way they are formatted in the html code#
+     
+       DOI= doi_url %>%strip_doi_chars() %>% unique()) %>% 
+      #This combines the DF with new columns, and we set out Volume=Volume and our issues=i# 
       mutate(volume = volume, 
              issue = i)
     }) 
-  
+  #We return the Output #
   return(out)
   
 }
 
-
-vols = 84:89
-articles <- list()
-for(i in 1:length(vols)){
-  vol <- vols[i]
-  articles[[i]] <- get_RERA(vol)
+#We Set our range for volumes#
+reravols = 84:89
+rera_articles <- list()
+for(i in 1:length(reravols)){
+  reravol <- reravols[i]
+  rera_articles[[i]] <- get_RERA(reravol)
 }
+
+rera_articles
 
 # articles <- lapply(1:length(vols),
 #                    FUN=function(i) get_RERA(vols[i])
 #                    )
 
-article_df <- bind_rows(articles)
+article_df <- bind_rows(rera_articles)
 
-rev_of_ed <- rbind.fill(rev_of_ed84, rev_of_ed85, rev_of_ed86, rev_of_ed87,rev_of_ed88, rev_of_ed89)
-View(rev_of_ed)
 
-#This is for Psych Bulletin#
+#Now we repeat this flow for Psychological Bulletin#
+get_pb <- function(volume){
 
-Psych_Bull <- 'https://psycnet.apa.org/PsycARTICLES/journal/bul/140/%d
+pb_base <- 'https://psycnet.apa.org/PsycARTICLES/journal/bul/'
+
+pb <- paste0(pb_base, volume, '/%d')
+
+k_issues <- ifelse(volume %in% 140:141, 6, 12)
                 
 
-psychbuilddf <- for(x in Psych_Bull){map_df(1:12, function(i){
-  webpage <- read_html(sprintf(Psych_Bull , i))
-  data.frame(Title= webpage %>% html_nodes('.article-title') %>%html_text(),
-             Authors= webpage %>% html_nodes('br+ span span:nth-child(2)')%>% html_text(),
-             DOI = webpage %>% html_nodes('.doi') %>% html_text())
-})}
+pbdf <- map_df(1:k_issues, function(x){
+  
+  webpage <- read_html(sprintf(pb, x))  
+  
+  data.frame(
+    Title= webpage %>% html_nodes('.article-title') %>%html_text(),
+            
+     Authors= webpage %>% html_nodes('br+ span span:nth-child(2)')%>% html_text(),
+             
+    DOI = webpage %>% html_nodes('.doi') %>% html_text()) %>%
+    
+    mutate(volume = volume, 
+           issue = i)
+})
 
-View(psychbuilddf)
+return(pbdf)
+}
+
+pbvols = 140:145
+pb_articles <- list()
+for(i in 1:length(pbvols)){
+  pbvol <- pbvols[i]
+  pb_articles[[i]] <- get_pb(pbvol)
+}
+
+pb_articles
+
+get
 
 #JRST#
 
