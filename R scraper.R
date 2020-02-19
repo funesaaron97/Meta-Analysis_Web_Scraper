@@ -5,7 +5,7 @@ library(tidyverse)
 library(ggplot2)
 
 
-#This first section is for the Review of Educational Reseach#
+#This first section is for the Review of Educational Research#
 
 #We will define a function that cleans the Doi component of the Review of Educational Research#
 strip_doi_chars <- function(string){
